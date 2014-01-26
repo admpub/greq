@@ -15,8 +15,10 @@ func TestGet(t *testing.T) {
 	ts := newTestResponse(b)
 	defer ts.Close()
 	Host = ts.URL
-	body, _ := Get("/")
-
+	body, _, err := Get("/")
+	if err != nil {
+		t.Errorf("\nExpected = %v\nResult = %v\n", nil, err)
+	}
 	ex := fmt.Sprintf("%s", string(b))
 	r := fmt.Sprintf("%s", string(body))
 	if ex != r {
