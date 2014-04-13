@@ -6,53 +6,87 @@ package greq
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
-var Host = "http://0.0"
-
-// Get the path from the Server.
-func Get(path string) ([]byte, *http.Response, error) {
-	return Request("GET", Host+path, nil)
+// Req object
+type Req struct {
+	host string
+	json bool
 }
 
-// Post data to the path on the Server.
-func Post(path string, data interface{}) ([]byte, *http.Response, error) {
-	b, err := json.Marshal(data)
+// Get a new req object.
+func New(host string, json bool) *Req {
+	return &Req{host, json}
+}
+
+// Send head to the host.
+func (r *Req) Head(path string) ([]byte, *http.Response, error) {
+	return Do("HEAD", r.host+path, nil)
+}
+
+// Get the options from the host.
+func (r *Req) Options(path string) ([]byte, *http.Response, error) {
+	return Do("OPTIONS", r.host+path, nil)
+}
+
+// Get the path from the host.
+func (r *Req) Get(path string) ([]byte, *http.Response, error) {
+	return Do("GET", r.host+path, nil)
+}
+
+// Post data to the path on the host.
+func (r *Req) Post(path string, data map[string]interface{}) ([]byte, *http.Response, error) {
+	b, err := r.body(data)
 	if err != nil {
 		return nil, nil, err
 	}
-	js := bytes.NewBuffer(b)
-	return Request("POST", Host+path, js)
+	return Do("POST", r.host+path, b)
 }
 
-// Put data to the path on the Server.
-func Put(path string, data interface{}) ([]byte, *http.Response, error) {
-	b, err := json.Marshal(data)
+// Put data to the path on the host.
+func (r *Req) Put(path string, data map[string]interface{}) ([]byte, *http.Response, error) {
+	b, err := r.body(data)
 	if err != nil {
 		return nil, nil, err
 	}
-	js := bytes.NewBuffer(b)
-	return Request("PUT", Host+path, js)
+	return Do("PUT", r.host+path, b)
 }
 
-// Send delete to the path on the Server.
-func Delete(path string) ([]byte, *http.Response, error) {
-	return Request("DELETE", Host+path, nil)
+// Send delete to the path on the host.
+func (r *Req) Delete(path string) ([]byte, *http.Response, error) {
+	return Do("DELETE", r.host+path, nil)
 }
 
-// Generic Request method
-func Request(method string, url string, body io.Reader) ([]byte, *http.Response, error) {
+// Create an io.Reader for the body.
+func (r *Req) body(data map[string]interface{}) (io.Reader, error) {
+	if r.json == true {
+		j, err := json.Marshal(data)
+		if err == nil {
+			return bytes.NewBuffer(j), nil
+		}
+		return nil, err
+	}
+	d := ToForm(data)
+	if d != nil {
+		return strings.NewReader(d.Encode()), nil
+	}
+	return nil, errors.New("Data could not be converted to values.")
+}
+
+// Generic request method
+func Do(method string, url string, body io.Reader) ([]byte, *http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, nil, err
 	}
 	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,4 +96,13 @@ func Request(method string, url string, body io.Reader) ([]byte, *http.Response,
 		return nil, nil, err
 	}
 	return b, res, nil
+}
+
+// Conver a map[string]interface to url.Values
+func ToForm(data map[string]interface{}) url.Values {
+	values := url.Values{}
+	for k, v := range data {
+		values.Set(k, fmt.Sprintf("%v", v))
+	}
+	return values
 }
