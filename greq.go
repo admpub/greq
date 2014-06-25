@@ -17,28 +17,36 @@ import (
 
 // Req object
 type Req struct {
-	host string
-	json bool
+	host   string
+	json   bool
+	header http.Header
 }
 
 // Get a new req object.
 func New(host string, json bool) *Req {
-	return &Req{host, json}
+	return &Req{host, json, http.Header{}}
+}
+
+func (r *Req) Header(h http.Header) http.Header {
+	if h != nil {
+		r.header = h
+	}
+	return r.header
 }
 
 // Send head to the host.
 func (r *Req) Head(path string) ([]byte, *http.Response, error) {
-	return Do("HEAD", r.host+path, nil)
+	return Do("HEAD", r.host+path, r.header, nil)
 }
 
 // Get the options from the host.
 func (r *Req) Options(path string) ([]byte, *http.Response, error) {
-	return Do("OPTIONS", r.host+path, nil)
+	return Do("OPTIONS", r.host+path, r.header, nil)
 }
 
 // Get the path from the host.
 func (r *Req) Get(path string) ([]byte, *http.Response, error) {
-	return Do("GET", r.host+path, nil)
+	return Do("GET", r.host+path, r.header, nil)
 }
 
 // Post data to the path on the host.
@@ -47,7 +55,7 @@ func (r *Req) Post(path string, data map[string]interface{}) ([]byte, *http.Resp
 	if err != nil {
 		return nil, nil, err
 	}
-	return Do("POST", r.host+path, b)
+	return Do("POST", r.host+path, r.header, b)
 }
 
 // Put data to the path on the host.
@@ -56,12 +64,12 @@ func (r *Req) Put(path string, data map[string]interface{}) ([]byte, *http.Respo
 	if err != nil {
 		return nil, nil, err
 	}
-	return Do("PUT", r.host+path, b)
+	return Do("PUT", r.host+path, r.header, b)
 }
 
 // Send delete to the path on the host.
 func (r *Req) Delete(path string) ([]byte, *http.Response, error) {
-	return Do("DELETE", r.host+path, nil)
+	return Do("DELETE", r.host+path, r.header, nil)
 }
 
 // Create an io.Reader for the body.
@@ -81,11 +89,12 @@ func (r *Req) body(data map[string]interface{}) (io.Reader, error) {
 }
 
 // Generic request method
-func Do(method string, url string, body io.Reader) ([]byte, *http.Response, error) {
+func Do(method string, url string, headers http.Header, body io.Reader) ([]byte, *http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, nil, err
 	}
+	req.Header = headers
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, nil, err
